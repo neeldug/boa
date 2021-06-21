@@ -13,7 +13,6 @@ pub mod array_iterator;
 #[cfg(test)]
 mod tests;
 
-use crate::property::PropertyDescriptor;
 use crate::{
     builtins::array::array_iterator::{ArrayIterationKind, ArrayIterator},
     builtins::BuiltIn,
@@ -294,8 +293,11 @@ impl Array {
         if !spreadable.is_undefined() {
             return spreadable.to_boolean();
         }
-        //todo: return this.is_array() when method created
-        true
+
+        match this.as_object() {
+            Some(obj) => obj.is_array(),
+            _ => false,
+        }
     }
 
     /// `get Array [ @@species ]`
