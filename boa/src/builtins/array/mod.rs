@@ -428,19 +428,34 @@ impl Array {
 
         // Make a new array (using this object as the prototype basis for the new
         // one)
-        let mut new_values: Vec<Value> = Vec::new();
+        let mut new_values = Vec::new();
 
         let this_length = this.get_field("length", context)?.to_length(context)?;
         for n in 0..this_length {
             new_values.push(this.get_field(n, context)?);
         }
 
+        let mut n = this_length;
+
         for concat_array in args {
             let concat_length = concat_array
                 .get_field("length", context)?
                 .to_length(context)?;
-            for n in 0..concat_length {
-                new_values.push(concat_array.get_field(n, context)?);
+            let spreadable = concat_length != 1;
+            if spreadable {
+                if n + concat_length > Number::MAX_SAFE_INTEGER as usize {
+                    return context.throw_type_error("Invalid array length");
+                }
+                for k in 0..concat_length {
+                    new_values.push(concat_array.get_field(k, context)?);
+                    n += 1;
+                }
+            } else {
+                if n >= Number::MAX_SAFE_INTEGER as usize {
+                    return context.throw_type_error("Invalid array length");
+                }
+                new_values.push(concat_array.get_field(0, context)?);
+                n += 1;
             }
         }
 
