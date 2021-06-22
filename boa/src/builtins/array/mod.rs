@@ -137,7 +137,7 @@ impl Array {
             .unwrap_or_else(|| context.standard_objects().array_object().prototype());
         // Delegate to the appropriate constructor based on the number of arguments
         match args.len() {
-            0 => Ok(Array::construct_array_empty(prototype, context)),
+            0 => Array::construct_array_empty(prototype, context),
             1 => Array::construct_array_length(prototype, &args[0], context),
             _ => Array::construct_array_values(prototype, args, context),
         }
@@ -149,7 +149,7 @@ impl Array {
     ///  - [ECMAScript reference][spec]
     ///
     /// [spec]: https://tc39.es/ecma262/#sec-array-constructor-array
-    fn construct_array_empty(proto: GcObject, context: &mut Context) -> Value {
+    fn construct_array_empty(proto: GcObject, context: &mut Context) -> Result<Value> {
         Array::array_create(0, Some(proto), context)
     }
 
@@ -164,7 +164,7 @@ impl Array {
         length: &Value,
         context: &mut Context,
     ) -> Result<Value> {
-        let array = Array::array_create(0, Some(prototype), context);
+        let array = Array::array_create(0, Some(prototype), context)?;
 
         if !length.is_number() {
             array.set_property(0, DataDescriptor::new(length, Attribute::all()));
@@ -190,8 +190,8 @@ impl Array {
         items: &[Value],
         context: &mut Context,
     ) -> Result<Value> {
-        let items_len = items.len().try_into().map_err(interror_to_value)?;
-        let array = Array::array_create(items_len, Some(prototype), context);
+        let items_len = items.len();
+        let array = Array::array_create(items_len, Some(prototype), context)?;
 
         for (k, item) in items.iter().enumerate() {
             array.set_property(k, DataDescriptor::new(item.clone(), Attribute::all()));
@@ -206,7 +206,12 @@ impl Array {
     ///  - [ECMAScript reference][spec]
     ///
     /// [spec]: https://tc39.es/ecma262/#sec-arraycreate
-    fn array_create(length: u32, prototype: Option<GcObject>, context: &mut Context) -> Value {
+    fn array_create(length: usize, prototype: Option<GcObject>, context: &mut Context) -> Result<Value> {
+
+        if length >= 2usize.pow(32) - 1 {
+            return context.throw_range_error("RangeError: Invalid array length");
+        }
+
         let prototype = match prototype {
             Some(prototype) => prototype,
             None => context.standard_objects().array_object().prototype(),
@@ -227,7 +232,7 @@ impl Array {
         );
         array.set_property("length", length);
 
-        array
+        Ok(array)
     }
 
     /// Creates a new `Array` instance.
@@ -297,11 +302,11 @@ impl Array {
     /// see: <https://tc39.es/ecma262/#sec-arrayspeciescreate>
     pub(crate) fn array_species_create(
         original_array: &GcObject,
-        length: u32,
+        length: usize,
         context: &mut Context,
     ) -> Result<Value> {
         if !original_array.is_array() {
-            return Ok(Self::array_create(length, None, context));
+            return Ok(Self::array_create(length, None, context)?);
         }
         let c = original_array.get(
             &"constructor".into(),
@@ -324,7 +329,7 @@ impl Array {
             c
         };
         if c.is_undefined() {
-            return Ok(Self::array_create(length, None, context));
+            return Ok(Self::array_create(length, None, context)?);
         }
         if let Some(c) = c.as_object() {
             if !c.is_constructable() {
@@ -394,7 +399,7 @@ impl Array {
             Some(object) if object.is_constructable() => {
                 object.construct(&[args.len().into()], this, context)?
             }
-            _ => Array::array_create(args.len() as u32, None, context),
+            _ => Array::array_create(args.len(), None, context)?,
         };
 
         // add properties
@@ -797,7 +802,7 @@ impl Array {
             return context.throw_type_error("Callbackfn is not callable");
         }
         // 4. Let A be ? ArraySpeciesCreate(O, len).
-        let arr = Self::array_species_create(&obj, len as u32, context)?;
+        let arr = Self::array_species_create(&obj, len, context)?;
         // 5. Let k be 0.
         // 6. Repeat, while k < len,
         for k in 0..len {
