@@ -206,8 +206,11 @@ impl Array {
     ///  - [ECMAScript reference][spec]
     ///
     /// [spec]: https://tc39.es/ecma262/#sec-arraycreate
-    fn array_create(length: usize, prototype: Option<GcObject>, context: &mut Context) -> Result<Value> {
-
+    fn array_create(
+        length: usize,
+        prototype: Option<GcObject>,
+        context: &mut Context,
+    ) -> Result<Value> {
         if length >= 2usize.pow(32) - 1 {
             return context.throw_range_error("RangeError: Invalid array length");
         }
@@ -306,7 +309,7 @@ impl Array {
         context: &mut Context,
     ) -> Result<Value> {
         if !original_array.is_array() {
-            return Ok(Self::array_create(length, None, context)?);
+            return Self::array_create(length, None, context);
         }
         let c = original_array.get(
             &"constructor".into(),
@@ -329,7 +332,7 @@ impl Array {
             c
         };
         if c.is_undefined() {
-            return Ok(Self::array_create(length, None, context)?);
+            return Self::array_create(length, None, context);
         }
         if let Some(c) = c.as_object() {
             if !c.is_constructable() {
