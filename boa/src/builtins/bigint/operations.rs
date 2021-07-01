@@ -4,6 +4,7 @@ use num_traits::cast::ToPrimitive;
 use num_traits::pow::Pow;
 
 use super::BigInt;
+use std::ops::{Neg, Not};
 
 impl BigInt {
     #[inline]
@@ -86,11 +87,27 @@ impl_bigint_operator!(BitAnd, bitand, BitAndAssign, bitand_assign);
 impl_bigint_operator!(BitOr, bitor, BitOrAssign, bitor_assign);
 impl_bigint_operator!(BitXor, bitxor, BitXorAssign, bitxor_assign);
 
-impl std::ops::Neg for BigInt {
+impl Neg for BigInt {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
         Self(-self.0)
+    }
+}
+
+impl Not for BigInt {
+    type Output = Self;
+
+    fn not(self) -> BigInt {
+        Self(!self.0)
+    }
+}
+
+impl<'a> Not for &'a BigInt {
+    type Output = BigInt;
+
+    fn not(self) -> BigInt {
+        BigInt(!self.clone().0)
     }
 }
 
